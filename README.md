@@ -18,7 +18,7 @@ assets/
   scss/style.scss    ← stylesheet source (edit this)
   css/style.css      ← compiled CSS (do not edit by hand)
   js/app.js          ← application logic (Three.js scene + optics math)
-configuratorApp.html ← original single-file version (reference)
+index.html ← original single-file version (reference)
 ```
 
 ## Local development
