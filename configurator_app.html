@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HUD 3D Configurator v4</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{background:#0f0f13;color:#e0e0e0;font-family:system-ui,sans-serif;padding:16px;}
+h1{font-size:13px;letter-spacing:.15em;color:#666;text-transform:uppercase;margin-bottom:16px;}
+#c3d{width:100%;height:420px;display:block;cursor:grab;border:1px solid #1e1e22;border-radius:6px;}
+#c3d:active{cursor:grabbing;}
+.hint{font-size:10px;color:#444;margin:4px 0 10px;letter-spacing:.07em;}
+.results{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;padding:6px 0 8px;}
+.rc{background:#1a1a1e;border-radius:6px;padding:8px 10px;}
+.rl{font-size:10px;color:#555;margin-bottom:2px;}
+.rv{font-size:15px;font-weight:500;color:#e0e0e0;}
+.ru{font-size:10px;color:#666;}
+.rv.good{color:#00cc66;}.rv.warn{color:#ffaa00;}.rv.bad{color:#ff4444;}
+.alerts{padding:2px 0 8px;min-height:4px;}
+.al{font-size:11px;padding:5px 9px;border-radius:5px;margin:3px 0;display:none;}
+.al.show{display:block;}
+.al.w{background:#2a1f00;color:#ffaa00;}
+.al.e{background:#2a0000;color:#ff4444;}
+.al.g{background:#002a12;color:#00cc66;}
+.panels{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:4px 0;}
+.panel{background:#1a1a1e;border-radius:6px;padding:10px 12px;}
+.ph{font-size:10px;font-weight:500;color:#555;text-transform:uppercase;letter-spacing:.07em;margin:0 0 8px;}
+.pr{display:flex;align-items:center;gap:8px;margin:0 0 6px;}
+.pr label{font-size:12px;color:#888;width:140px;flex-shrink:0;}
+.pr input[type=range]{flex:1;min-width:0;accent-color:#CC4A18;}
+.pr select{flex:1;background:#111;color:#e0e0e0;border:1px solid #333;border-radius:4px;padding:3px 6px;font-size:12px;}
+.pv{font-size:12px;font-weight:500;color:#e0e0e0;min-width:48px;text-align:right;}
+.tb{display:flex;flex-wrap:wrap;gap:5px;}
+.b{padding:3px 9px;font-size:11px;border:1px solid #2a2a2e;border-radius:20px;background:#1a1a1e;color:#666;cursor:pointer;user-select:none;}
+.b.on{background:#0f1f10;color:#00cc66;border-color:#00aa44;}
+/* mode toggle */
+.mode-row{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
+.mode-btn{padding:5px 16px;font-size:12px;border:1px solid #333;border-radius:20px;background:#1a1a1e;color:#666;cursor:pointer;user-select:none;transition:all .15s;}
+.mode-btn.active{background:#1a1a30;color:#66aaff;border-color:#3355aa;}
+.mode-label{font-size:10px;color:#444;letter-spacing:.07em;text-transform:uppercase;}
+/* prism-only rows */
+.prism-only{transition:opacity .2s;}
+.prism-only.hidden{opacity:0.25;pointer-events:none;}
+@media(max-width:520px){.panels{grid-template-columns:1fr;}.results{grid-template-columns:repeat(3,1fr);}}
+</style>
+</head>
+<body>
+<h1>HUD 3D Configurator v4 — prism / no-prism</h1>
+
+<!-- Mode toggle -->
+<div class="mode-row">
+  <span class="mode-label">Optical path:</span>
+  <button class="mode-btn" id="btn-noprism" onclick="setMode('noprism')">No prism (vertical OLED)</button>
+  <button class="mode-btn active" id="btn-prism"   onclick="setMode('prism')">90° prism (flat OLED)</button>
+</div>
+
+<canvas id="c3d"></canvas>
+<p class="hint">drag to rotate · scroll to zoom · right-drag to pan</p>
+
+<div class="results" style="grid-template-columns:repeat(5,1fr);">
+  <div class="rc" title="Exact screen→lens gap for virtual image at chosen distance."><div class="rl">Optimal screen→lens</div><div class="rv" id="r-opt">—</div><div class="ru">mm</div></div>
+  <div class="rc" title="Signed offset from optimal. Negative = move OLED further. Positive = move OLED closer."><div class="rl">Current gap Δ</div><div class="rv" id="r-delta">—</div><div class="ru">mm off</div></div>
+  <div class="rc" title="How far the virtual image appears to float. 800–3000mm = relaxed focus."><div class="rl">Virtual img distance</div><div class="rv" id="r-imgd">—</div><div class="ru">mm</div></div>
+  <div class="rc" title="Magnification. Lower is better for HUD."><div class="rl">Magnification</div><div class="rv" id="r-mag">—</div><div class="ru">×</div></div>
+  <div class="rc" title="Apparent size of virtual image."><div class="rl">Virtual img size</div><div class="rv" id="r-imgs">—</div><div class="ru">mm</div></div>
+</div>
+<div class="results" style="grid-template-columns:repeat(5,1fr);padding-top:0;">
+  <div class="rc"><div class="rl">FoV W × H</div><div class="rv" id="r-fov">—</div><div class="ru">°</div></div>
+  <div class="rc"><div class="rl">Lens → splitter</div><div class="rv" id="r-ls">—</div><div class="ru">mm</div></div>
+  <div class="rc"><div class="rl">Total axis length</div><div class="rv" id="r-tot">—</div><div class="ru">mm</div></div>
+  <div class="rc" id="rc-prism" title="Extra path length added by prism. Only in prism mode."><div class="rl">Prism path</div><div class="rv" id="r-prism">—</div><div class="ru">mm</div></div>
+  <div class="rc"><div class="rl">Focus comfort</div><div class="rv" id="r-focus">—</div><div class="ru"></div></div>
+</div>
+
+<div id="legend" style="background:#1a1a1e;border-radius:6px;padding:9px 12px;margin-bottom:8px;font-size:11px;line-height:1.7;color:#666;">
+  <span style="color:#555;font-size:10px;text-transform:uppercase;letter-spacing:.07em;font-weight:500;">Focus comfort guide</span><br>
+  <span style="color:#ff4444">■</span> <b style="color:#999">very close</b> — image &lt;300mm, eye strain. Avoid.<br>
+  <span style="color:#ffaa00">■</span> <b style="color:#999">arm length</b> — 300–800mm. Some effort. Short use only.<br>
+  <span style="color:#00cc66">■</span> <b style="color:#999">relaxed ✓</b> — 800mm–3m. Eye nearly fully relaxed. <b style="color:#00cc66">Best.</b><br>
+  <span style="color:#00cc66">■</span> <b style="color:#999">far/∞ ✓</b> — 3m+. Fully relaxed. <b style="color:#00cc66">Excellent.</b><br>
+  <span style="color:#ff4444">■</span> <b style="color:#999">real img!</b> — OLED past focal length. Inverted — unusable.
+</div>
+
+<div class="alerts">
+  <div class="al w" id="al-vign">Display wider than lens — corner vignetting.</div>
+  <div class="al w" id="al-gap">Screen→lens gap differs from optimal by &gt;3mm.</div>
+  <div class="al g" id="al-good">All parameters look good.</div>
+</div>
+
+<div class="panels">
+  <div class="panel">
+    <div class="ph">Lens</div>
+    <div class="pr"><label>Diameter D</label><input type="range" id="lD" min="6" max="40" value="30" step="1"><span class="pv"><span id="lD-v">30</span> mm</span></div>
+    <div class="pr"><label>Focal length f</label><input type="range" id="lF" min="6" max="65" value="12" step="1"><span class="pv"><span id="lF-v">12</span> mm</span></div>
+    <div class="pr"><label>Thickness H</label><input type="range" id="lH" min="2" max="14" value="7" step="0.1"><span class="pv"><span id="lH-v">7.0</span> mm</span></div>
+  </div>
+  <div class="panel">
+    <div class="ph">Screen (OLED)</div>
+    <div class="pr"><label>Screen active width</label><input type="range" id="dW" min="5" max="40" value="10.5" step="0.1"><span class="pv"><span id="dW-v">10.5</span> mm</span></div>
+    <div class="pr"><label>Screen active height</label><input type="range" id="dH" min="3" max="40" value="8.5" step="0.1"><span class="pv"><span id="dH-v">8.5</span> mm</span></div>
+  </div>
+  <div class="panel">
+    <div class="ph">PCB</div>
+    <div class="pr"><label>PCB length (X)</label><input type="range" id="dP" min="10" max="100" value="40" step="1"><span class="pv"><span id="dP-v">40</span> mm</span></div>
+    <div class="pr"><label>PCB width (Z)</label><input type="range" id="pcbW" min="10" max="60" value="42" step="1"><span class="pv"><span id="pcbW-v">42</span> mm</span></div>
+    <div class="pr"><label>PCB thickness</label><input type="range" id="dPS" min="3" max="12" value="6" step="0.5"><span class="pv"><span id="dPS-v">6.0</span> mm</span></div>
+    <div class="pr prism-only" id="row-prismS">
+      <label>Prism size</label>
+      <select id="prismS">
+        <option value="10">10 mm</option>
+        <option value="15" selected>15 mm</option>
+        <option value="20">20 mm</option>
+        <option value="25">25 mm</option>
+      </select>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="ph">Spacing</div>
+    <div class="pr"><label>Screen → lens</label><input type="range" id="sUL" min="3" max="80" value="10" step="0.5"><span class="pv"><span id="sUL-v">10.0</span> mm</span></div>
+    <div class="pr"><label>Lens → splitter</label><input type="range" id="sLS" min="3" max="60" value="12" step="0.5"><span class="pv"><span id="sLS-v">12.0</span> mm</span></div>
+    <div class="pr"><label>Virtual distance</label><input type="range" id="sVD" min="300" max="5000" value="2000" step="100"><span class="pv"><span id="sVD-v">2000</span> mm</span></div>
+  </div>
+  <div class="panel">
+    <div class="ph">Beam splitter</div>
+    <div class="pr"><label>Size (square)</label><input type="range" id="splS" min="10" max="50" value="30" step="1"><span class="pv"><span id="splS-v">30</span> mm</span></div>
+    <div class="pr"><label>Thickness</label><input type="range" id="splT" min="1" max="8" value="1.1" step="0.1"><span class="pv"><span id="splT-v">1.1</span> mm</span></div>
+  </div>
+  <div class="panel">
+    <div class="ph">Visibility</div>
+    <div class="tb" id="tb"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+var canvas=document.getElementById('c3d');
+var renderer=new THREE.WebGLRenderer({canvas:canvas,antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.shadowMap.enabled=true; renderer.sortObjects=true;
+var scene=new THREE.Scene();
+var camera=new THREE.PerspectiveCamera(45,2,0.1,2000);
+scene.add(new THREE.AmbientLight(0xffffff,0.5));
+var dl=new THREE.DirectionalLight(0xffffff,0.9); dl.position.set(60,110,70); dl.castShadow=true; scene.add(dl);
+var dl2=new THREE.DirectionalLight(0xffffff,0.3); dl2.position.set(-50,-20,-70); scene.add(dl2);
+
+function mp(c,o){var m=new THREE.MeshPhongMaterial({color:c});if(o)Object.assign(m,o);return m;}
+var MAT={
+  shell:   mp(0xCC4A18,{shininess:40,transparent:true,opacity:0.72,depthWrite:false}),
+  pcb:     mp(0x1a4420,{shininess:55}),
+  chip:    mp(0x111111,{shininess:80}),
+  usb:     mp(0x555555,{shininess:80}),
+  led:     mp(0x00ff55,{emissive:0x00bb33,emissiveIntensity:1.0}),
+  oledBg:  mp(0x050510,{shininess:150}),
+  oledPx:  mp(0xffffff,{emissive:0xffffff,emissiveIntensity:1.0,transparent:true,opacity:0.95}),
+  oledRow: mp(0xaaccff,{emissive:0x5588ff,emissiveIntensity:0.7,transparent:true,opacity:0.5}),
+  prism:   mp(0x99ddff,{shininess:280,transparent:true,opacity:0.35,side:THREE.DoubleSide,depthWrite:false}),
+  lens:    mp(0x88ccee,{shininess:260,transparent:true,opacity:0.45,depthWrite:false}),
+  lensRim: mp(0x222222,{shininess:70}),
+  spl:     mp(0xaaccee,{shininess:260,transparent:true,opacity:0.32,side:THREE.DoubleSide,depthWrite:false}),
+  splEdge: mp(0x88aacc,{shininess:140,transparent:true,opacity:0.5,depthWrite:false}),
+  fpc:     mp(0xccaa22,{transparent:true,opacity:0.8}),
+};
+
+var groups={};
+var root=new THREE.Group(); scene.add(root);
+function clearScene(){while(root.children.length)root.remove(root.children[0]);groups={};}
+function addM(name,mesh){mesh.castShadow=true;mesh.receiveShadow=true;root.add(mesh);if(!groups[name])groups[name]=[];groups[name].push(mesh);return mesh;}
+function B(n,x,y,z,w,h,d,m){var mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),m);mesh.position.set(x,y,z);return addM(n,mesh);}
+function Ln(n,pts,col,op){var geo=new THREE.BufferGeometry().setFromPoints(pts.map(function(p){return new THREE.Vector3(p[0],p[1],p[2]);}));return addM(n,new THREE.Line(geo,new THREE.LineBasicMaterial({color:col,transparent:true,opacity:op||0.85})));}
+
+var mode='prism'; // 'prism' or 'noprism'
+var params={lD:30,lF:12,lH:7,dW:10.5,dH:8.5,dP:40,pcbW:42,dPS:6,prismS:15,splS:30,splT:1.1,sUL:10,sLS:12,sVD:2000};
+
+function setMode(m){
+  mode=m;
+  document.getElementById('btn-prism').classList.toggle('active', m==='prism');
+  document.getElementById('btn-noprism').classList.toggle('active', m==='noprism');
+  document.getElementById('row-prismS').classList.toggle('hidden', m==='noprism');
+  document.getElementById('rc-prism').style.opacity = m==='prism'?'1':'0.3';
+  // update title
+  document.querySelector('h1').textContent = m==='prism'
+    ? 'HUD 3D Configurator v4 — 90° prism (flat OLED)'
+    : 'HUD 3D Configurator v4 — vertical OLED (no prism)';
+  buildScene(params); updateResults(params);
+}
+
+// ── PRISM MODE SCENE ──────────────────────────────────────────────────────
+function buildScenePrism(p){
+  var WW=2.0;
+  var lD=p.lD,lF=p.lF,lH=p.lH;
+  var dW=p.dW,dH=p.dH;
+  var dP=p.dP,pcbW=p.pcbW,dPS=p.dPS;
+  var PS=p.prismS;
+  var UL=p.sUL,LS=p.sLS;
+  var splS=p.splS,splT=p.splT;
+
+  var pcbTopY    = WW + dPS;
+  var prismExitX = WW + dP;
+  var prismCX    = prismExitX - PS/2;
+  var prismCY    = pcbTopY + PS/2;
+  var tCY        = prismCY;
+
+  var lensX      = prismExitX + UL + lH/2;
+  var splX       = lensX + lH/2 + LS;
+
+  var tIH  = pcbTopY + PS + 3;
+  var tOH  = tIH + WW;
+  var tIW  = Math.max(pcbW, PS+4, lD+4);
+  var tOW  = tIW + WW*2;
+  var ZC   = tOW/2;
+  var lensEndX = lensX + lH/2 + WW;
+
+
+
+  // PCB
+  B('pcb', WW+1+dP/2, WW+dPS/2, ZC, dP, dPS, pcbW, MAT.pcb);
+  B('pcb', WW+1+dP*0.3, WW+dPS+1, ZC, Math.min(dP*0.28,14), 2, Math.min(pcbW*0.4,12), MAT.chip);
+  B('pcb', WW-0.5, WW+dPS+1, ZC, 2.5, 3, 8, MAT.usb);
+  B('pcb', WW+dP-3, WW+dPS+1, ZC+Math.min(pcbW,tIW)/2-3, 2, 2, 2, MAT.led);
+
+  // OLED flat on PCB (face up)
+  B('oled', prismCX, pcbTopY+0.9, ZC, PS+1, 1.2, PS+1, MAT.oledBg);
+  B('oled', prismCX, pcbTopY+1.6, ZC, dW, 0.4, dH, MAT.oledPx);
+  for(var ri=0;ri<5;ri++){
+    var rz=ZC-dH/2+(ri+0.5)*(dH/5);
+    var rowM=new THREE.Mesh(new THREE.BoxGeometry(dW-1,0.3,0.25),MAT.oledRow);
+    rowM.position.set(prismCX,pcbTopY+1.9,rz);addM('oled',rowM);
+  }
+
+  // 90° prism (triangular, proper geometry)
+  var pX0=prismCX-PS/2,pX1=prismCX+PS/2;
+  var pY0=pcbTopY+2,pY1=pcbTopY+2+PS;
+  var pZ0=ZC-PS/2,pZ1=ZC+PS/2;
+  var verts=new Float32Array([
+    pX0,pY0,pZ0,pX1,pY0,pZ0,pX1,pY1,pZ0,
+    pX0,pY0,pZ1,pX1,pY0,pZ1,pX1,pY1,pZ1,
+  ]);
+  var idx=[0,1,2,5,4,3,0,3,4,0,4,1,1,4,5,1,5,2,2,5,3,2,3,0];
+  var prismGeo=new THREE.BufferGeometry();
+  prismGeo.setAttribute('position',new THREE.BufferAttribute(verts,3));
+  prismGeo.setIndex(idx);prismGeo.computeVertexNormals();
+  addM('prism',new THREE.Mesh(prismGeo,MAT.prism));
+  Ln('prism',[[pX0,pY0,pZ0],[pX1,pY0,pZ0],[pX1,pY1,pZ0],[pX0,pY0,pZ0]],0x88ccff,0.85);
+  Ln('prism',[[pX0,pY0,pZ1],[pX1,pY0,pZ1],[pX1,pY1,pZ1],[pX0,pY0,pZ1]],0x88ccff,0.85);
+  Ln('prism',[[pX0,pY0,pZ0],[pX0,pY0,pZ1]],0x88ccff,0.65);
+  Ln('prism',[[pX1,pY0,pZ0],[pX1,pY0,pZ1]],0x88ccff,0.65);
+  Ln('prism',[[pX1,pY1,pZ0],[pX1,pY1,pZ1]],0x88ccff,0.65);
+
+  // Lens
+  var lMesh=new THREE.Mesh(new THREE.CylinderGeometry(lD/2,lD/2,lH,40),MAT.lens);
+  lMesh.rotation.z=Math.PI/2;lMesh.position.set(lensX,tCY,ZC);addM('lens',lMesh);
+  var lRim=new THREE.Mesh(new THREE.TorusGeometry(lD/2+0.6,1.1,8,40),MAT.lensRim);
+  lRim.rotation.y=Math.PI/2;lRim.position.set(lensX,tCY,ZC);addM('lens',lRim);
+
+  // Beam splitter
+  var sM=new THREE.Mesh(new THREE.BoxGeometry(splT,splS,splS),MAT.spl);
+  sM.rotation.z=Math.PI/4+Math.PI/2;sM.position.set(splX,tCY,ZC);addM('splitter',sM);
+  var sE=new THREE.Mesh(new THREE.BoxGeometry(splT+0.5,splS+0.5,splS+0.5),MAT.splEdge);
+  sE.rotation.z=Math.PI/4+Math.PI/2;sE.position.set(splX,tCY,ZC);addM('splitter',sE);
+
+  // Light rays
+  Ln('rays',[[prismCX,pcbTopY+2,ZC],[prismCX,tCY,ZC]],0xffee22,0.65);
+  Ln('rays',[[prismExitX,tCY,ZC],[lensX,tCY,ZC],[splX,tCY,ZC]],0xffee22,0.9);
+  Ln('rays',[[splX,tCY,ZC],[splX,tCY+50,ZC]],0xffee22,0.9);
+  Ln('rays',[[splX-50,tCY,ZC],[splX,tCY,ZC]],0x55aaff,0.5);
+  Ln('rays',[[splX,tCY,ZC],[splX+50,tCY,ZC]],0x55aaff,0.25);
+
+  camTarget.set((lensEndX+splX)/2,(tOH)/2,ZC);
+  camRadius=Math.max(lensEndX+splX,tOH,tOW)*1.5;
+}
+
+// ── NO-PRISM MODE SCENE ────────────────────────────────────────────────────
+function buildSceneNoPrism(p){
+  var WW=2.0;
+  var lD=p.lD,lF=p.lF,lH=p.lH;
+  var dW=p.dW,dH=p.dH;
+  var dP=p.dP,pcbW=p.pcbW,dPS=p.dPS;
+  var UL=p.sUL,LS=p.sLS;
+  var splS=p.splS,splT=p.splT;
+
+  var pcbTopY   = WW+dPS;
+  var oledFaceX = WW+dP;
+  var oledH     = dW;
+  var tIH       = Math.max(pcbTopY+4, oledH+8, lD+4);
+  var tOH       = tIH+WW*2;
+  var tCY       = tOH/2;
+  var tIW       = Math.max(pcbW,lD+4);
+  var tOW       = tIW+WW*2;
+  var ZC        = tOW/2;
+  var lensX     = oledFaceX+UL+lH/2;
+  var splX      = lensX+lH/2+LS;
+  var lensEndX  = lensX+lH/2+WW;
+
+
+
+  // PCB
+  B('pcb', WW+1+dP/2, WW+dPS/2, ZC, dP, dPS, pcbW, MAT.pcb);
+  B('pcb', WW+1+dP*0.3, WW+dPS+1, ZC, Math.min(dP*0.28,14), 2, Math.min(pcbW*0.4,12), MAT.chip);
+  B('pcb', WW-0.5, WW+dPS+1, ZC, 2.5, 3, 8, MAT.usb);
+  B('pcb', WW+dP-3, WW+dPS+1, ZC+Math.min(pcbW,tIW)/2-3, 2, 2, 2, MAT.led);
+
+  // OLED vertical, face toward lens (+X)
+  var oledModT=3.5, oledModH=dW+4, oledModD=dH+4;
+  B('oled', oledFaceX-oledModT/2, tCY, ZC, oledModT, oledModH, oledModD, MAT.oledBg);
+  var oledFaceM=new THREE.Mesh(new THREE.BoxGeometry(0.4,dW,dH),MAT.oledPx);
+  oledFaceM.position.set(oledFaceX+0.2,tCY,ZC);addM('oled',oledFaceM);
+  for(var ri=0;ri<5;ri++){
+    var ry=tCY-dW/2+(ri+0.5)*(dW/5);
+    var rowM=new THREE.Mesh(new THREE.BoxGeometry(0.25,0.35,dH-1),MAT.oledRow);
+    rowM.position.set(oledFaceX+0.35,ry,ZC);addM('oled',rowM);
+  }
+  var fpcH=tCY-oledModH/2-(WW+dPS);
+  if(fpcH>0.5)B('oled',oledFaceX-oledModT/2,tCY-oledModH/2-fpcH/2,ZC,2,fpcH,5,MAT.fpc);
+
+  // Lens
+  var lMesh=new THREE.Mesh(new THREE.CylinderGeometry(lD/2,lD/2,lH,40),MAT.lens);
+  lMesh.rotation.z=Math.PI/2;lMesh.position.set(lensX,tCY,ZC);addM('lens',lMesh);
+  var lRim=new THREE.Mesh(new THREE.TorusGeometry(lD/2+0.6,1.1,8,40),MAT.lensRim);
+  lRim.rotation.y=Math.PI/2;lRim.position.set(lensX,tCY,ZC);addM('lens',lRim);
+
+  // Beam splitter
+  var sM=new THREE.Mesh(new THREE.BoxGeometry(splT,splS,splS),MAT.spl);
+  sM.rotation.z=Math.PI/4+Math.PI/2;sM.position.set(splX,tCY,ZC);addM('splitter',sM);
+  var sE=new THREE.Mesh(new THREE.BoxGeometry(splT+0.5,splS+0.5,splS+0.5),MAT.splEdge);
+  sE.rotation.z=Math.PI/4+Math.PI/2;sE.position.set(splX,tCY,ZC);addM('splitter',sE);
+
+  // Light rays
+  Ln('rays',[[oledFaceX,tCY,ZC],[lensX-lH/2,tCY,ZC],[splX,tCY,ZC]],0xffee22,0.9);
+  Ln('rays',[[splX,tCY,ZC],[splX,tCY+50,ZC]],0xffee22,0.9);
+  Ln('rays',[[splX-50,tCY,ZC],[splX,tCY,ZC]],0x55aaff,0.5);
+  Ln('rays',[[splX,tCY,ZC],[splX+50,tCY,ZC]],0x55aaff,0.25);
+
+  camTarget.set((lensEndX+splX)/2,tOH/2,ZC);
+  camRadius=Math.max(lensEndX+splX,tOH,tOW)*1.5;
+}
+
+function buildScene(p){
+  clearScene();
+  if(mode==='prism') buildScenePrism(p);
+  else               buildSceneNoPrism(p);
+  updateCamera(); applyVis();
+}
+
+function updateResults(p){
+  var f=p.lF, vi=p.sVD, dW=p.dW, dH=p.dH, u=p.sUL;
+  var PS=p.prismS;
+
+  var uOpt=f*vi/(vi-f);
+  var diff=u-uOpt;
+  var inv_v=1/f-1/u;
+  var imgDist,mag,imgW,imgH,focusLabel,focusClass;
+  if(Math.abs(inv_v)<0.0001){
+    imgDist=Infinity;mag=Infinity;imgW=Infinity;imgH=Infinity;
+    focusLabel='∞ (infinity)';focusClass='good';
+  } else if(inv_v<0){
+    imgDist=Math.abs(1/inv_v);mag=imgDist/u;imgW=dW*mag;imgH=dH*mag;
+    if(imgDist<300)      {focusLabel='very close';focusClass='bad';}
+    else if(imgDist<800) {focusLabel='arm length';focusClass='warn';}
+    else if(imgDist<3000){focusLabel='relaxed ✓'; focusClass='good';}
+    else                 {focusLabel='far/∞ ✓';   focusClass='good';}
+  } else {
+    imgDist=1/inv_v;mag=imgDist/u;imgW=dW*mag;imgH=dH*mag;
+    focusLabel='real img!';focusClass='bad';
+  }
+
+  var fovW=2*Math.atan(dW/2/f)*180/Math.PI;
+  var fovH=2*Math.atan(dH/2/f)*180/Math.PI;
+  var tot=u+p.lH+p.sLS;
+  var vign=(dW>p.lD),gapBad=(Math.abs(diff)>3);
+  var allGood=!vign&&!gapBad;
+
+  document.getElementById('r-opt').textContent=uOpt.toFixed(1);
+  document.getElementById('r-opt').className='rv '+(Math.abs(diff)>3?'warn':(Math.abs(diff)>1?'':'good'));
+  var deltaEl=document.getElementById('r-delta');
+  deltaEl.textContent=(diff>=0?'+':'')+diff.toFixed(1);
+  deltaEl.className='rv '+(Math.abs(diff)>3?'bad':(Math.abs(diff)>1?'warn':'good'));
+  var imgdEl=document.getElementById('r-imgd');
+  imgdEl.textContent=imgDist===Infinity?'∞':imgDist.toFixed(0);
+  imgdEl.className='rv '+(focusClass==='good'?'good':(focusClass==='warn'?'warn':'bad'));
+  var magEl=document.getElementById('r-mag');
+  magEl.textContent=mag===Infinity?'∞':mag.toFixed(1);
+  magEl.className='rv '+(mag<3?'good':(mag<10?'warn':'bad'));
+  var imgsEl=document.getElementById('r-imgs');
+  imgsEl.textContent=imgW===Infinity?'∞':(imgW.toFixed(0)+'×'+imgH.toFixed(0));
+  imgsEl.className='rv';
+  document.getElementById('r-fov').textContent=fovW.toFixed(0)+'×'+fovH.toFixed(0);
+  document.getElementById('r-ls').textContent=p.sLS.toFixed(1);
+  document.getElementById('r-tot').textContent=tot.toFixed(0);
+  document.getElementById('r-focus').textContent=focusLabel;
+  document.getElementById('r-focus').className='rv '+focusClass;
+
+  // prism path card
+  if(mode==='prism'){
+    document.getElementById('r-prism').textContent=(PS*2).toFixed(0);
+    document.getElementById('r-prism').className='rv';
+  } else {
+    document.getElementById('r-prism').textContent='—';
+    document.getElementById('r-prism').className='rv';
+  }
+
+  function al(id,show){document.getElementById(id).classList.toggle('show',show);}
+  al('al-vign',vign); al('al-gap',gapBad); al('al-good',allGood);
+  if(gapBad){
+    var dir=diff>0?' (move screen closer to lens)':(diff<0?' (move screen further from lens)':'');
+    document.getElementById('al-gap').textContent=
+      'Screen→lens is '+u.toFixed(1)+'mm, optimal is '+uOpt.toFixed(1)+'mm (Δ='+diff.toFixed(1)+'mm)'+dir+'.';
+  }
+}
+
+// Visibility toggles — no lipo, eyeport, eyerelief, eye
+var tdefs=[
+  {k:'oled',    l:'Display'},
+  {k:'pcb',     l:'PCB'},
+  {k:'prism',   l:'Prism'},
+  {k:'lens',    l:'Lens'},
+  {k:'splitter',l:'Splitter'},
+  {k:'openzone',l:'Open zone'},
+  {k:'rays',    l:'Rays'},
+];
+var vis={};tdefs.forEach(function(d){vis[d.k]=true;});
+var tb=document.getElementById('tb');
+tdefs.forEach(function(d){
+  var b=document.createElement('button');b.className='b on';b.textContent=d.l;
+  b.onclick=function(){vis[d.k]=!vis[d.k];b.classList.toggle('on',vis[d.k]);applyVis();};
+  tb.appendChild(b);
+});
+function applyVis(){
+  Object.keys(vis).forEach(function(k){
+    (groups[k]||[]).forEach(function(m){m.visible=vis[k];});
+  });
+  // prism toggle button greyed in noprism mode
+  var prismBtn=Array.from(document.querySelectorAll('.b')).find(function(b){return b.textContent==='Prism';});
+  if(prismBtn) prismBtn.style.opacity=mode==='noprism'?'0.3':'1';
+}
+
+var camTarget=new THREE.Vector3(40,20,15);
+var camRadius=200,theta=-0.5,phi=0.78,pX=0,pY=0;
+function updateCamera(){
+  camera.position.set(
+    camTarget.x+pX+camRadius*Math.sin(phi)*Math.sin(theta),
+    camTarget.y+pY+camRadius*Math.cos(phi),
+    camTarget.z+camRadius*Math.sin(phi)*Math.cos(theta));
+  camera.lookAt(camTarget.x+pX,camTarget.y+pY,camTarget.z);
+}
+var drag=false,rgt=false,lx=0,ly=0;
+canvas.addEventListener('mousedown',function(e){drag=true;rgt=e.button===2;lx=e.clientX;ly=e.clientY;});
+canvas.addEventListener('contextmenu',function(e){e.preventDefault();});
+window.addEventListener('mouseup',function(){drag=false;});
+window.addEventListener('mousemove',function(e){
+  if(!drag)return;
+  var dx=e.clientX-lx,dy=e.clientY-ly;lx=e.clientX;ly=e.clientY;
+  if(rgt){pX-=dx*0.1;pY+=dy*0.1;}
+  else{theta-=dx*0.007;phi=Math.max(0.08,Math.min(3.06,phi+dy*0.007));}
+  updateCamera();
+});
+canvas.addEventListener('wheel',function(e){
+  camRadius=Math.max(20,Math.min(700,camRadius+e.deltaY*0.25));
+  updateCamera();e.preventDefault();
+},{passive:false});
+var ltd=0;
+canvas.addEventListener('touchstart',function(e){
+  if(e.touches.length===1){drag=true;lx=e.touches[0].clientX;ly=e.touches[0].clientY;}
+  if(e.touches.length===2)ltd=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+});
+canvas.addEventListener('touchend',function(){drag=false;});
+canvas.addEventListener('touchmove',function(e){
+  if(e.touches.length===1&&drag){
+    var dx=e.touches[0].clientX-lx,dy=e.touches[0].clientY-ly;
+    lx=e.touches[0].clientX;ly=e.touches[0].clientY;
+    theta-=dx*0.007;phi=Math.max(0.08,Math.min(3.06,phi+dy*0.007));updateCamera();
+  }
+  if(e.touches.length===2){
+    var d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
+    camRadius=Math.max(20,Math.min(700,camRadius-(d-ltd)*0.35));ltd=d;updateCamera();
+  }
+  e.preventDefault();
+},{passive:false});
+
+var sliders=[
+  {id:'lD',key:'lD',dec:0},{id:'lF',key:'lF',dec:0},{id:'lH',key:'lH',dec:1},
+  {id:'dW',key:'dW',dec:1},{id:'dH',key:'dH',dec:1},
+  {id:'dP',key:'dP',dec:0},{id:'pcbW',key:'pcbW',dec:0},{id:'dPS',key:'dPS',dec:1},
+  {id:'splS',key:'splS',dec:0},{id:'splT',key:'splT',dec:1},
+  {id:'sUL',key:'sUL',dec:1},{id:'sLS',key:'sLS',dec:1},{id:'sVD',key:'sVD',dec:0},
+];
+sliders.forEach(function(s){
+  var el=document.getElementById(s.id),vEl=document.getElementById(s.id+'-v');
+  el.addEventListener('input',function(){
+    params[s.key]=+el.value;vEl.textContent=(+el.value).toFixed(s.dec);
+    buildScene(params);updateResults(params);
+  });
+});
+document.getElementById('prismS').addEventListener('change',function(){
+  params.prismS=+this.value;buildScene(params);updateResults(params);
+});
+
+function resize(){
+  var w=canvas.clientWidth;
+  renderer.setSize(w,420,false);
+  camera.aspect=w/420;camera.updateProjectionMatrix();
+}
+resize(); new ResizeObserver(resize).observe(canvas);
+function loop(){requestAnimationFrame(loop);renderer.render(scene,camera);}
+
+// init in prism mode
+setMode('prism');
+buildScene(params); updateResults(params); loop();
+</script>
+</body>
+</html>
