@@ -57,3 +57,12 @@ https://ostrzeniewskit.github.io/EUC-HUD-Optics-Configurator/
 | relaxed ✓ | 800 mm–3 m | Eye nearly fully relaxed — best |
 | far/∞ ✓ | > 3 m | Fully relaxed — excellent |
 | real img! | — | OLED past focal length — image inverted, unusable |
+
+## HUD in project
+
+| | |
+|---|---|
+| ![Front view](assets/img/hud-front-view.jpg) | ![Back view](assets/img/hud-back-view.jpg) |
+| ![Project front](assets/img/hud-project-front-view.jpg) | ![Project back](assets/img/hud-project-back-view.jpg) |
+
+![See-through view](assets/img/hud-see-thru.jpg)
