@@ -1,0 +1,259 @@
+// ── Colours ────────────────────────────────────────────────────────────────
+$bg-page:          #0f0f13;
+$bg-card:          #1a1a1e;
+$bg-card-border:   #1e1e22;
+
+$text:             #e0e0e0;
+$text-muted:       #666;
+$text-label:       #888;
+$text-hint:        #444;
+$text-sub:         #555;
+
+$color-good:       #00cc66;
+$color-warn:       #ffaa00;
+$color-bad:        #ff4444;
+$color-accent:     #CC4A18;
+
+$bg-alert-warn:    #2a1f00;
+$bg-alert-error:   #2a0000;
+$bg-alert-good:    #002a12;
+
+$border-subtle:    #333;
+$border-btn:       #2a2a2e;
+
+$bg-toggle-on:     #0f1f10;
+$border-toggle-on: #00aa44;
+
+$bg-mode-active:   #1a1a30;
+$color-mode-active:#66aaff;
+$border-mode-active:#3355aa;
+
+// ── Reset ──────────────────────────────────────────────────────────────────
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+// ── Base ───────────────────────────────────────────────────────────────────
+body {
+  background: $bg-page;
+  color: $text;
+  font-family: system-ui, sans-serif;
+  padding: 16px;
+}
+
+h1 {
+  font-size: 13px;
+  letter-spacing: .15em;
+  color: $text-muted;
+  text-transform: uppercase;
+  margin-bottom: 16px;
+}
+
+// ── 3D canvas ──────────────────────────────────────────────────────────────
+#c3d {
+  width: 100%;
+  height: 420px;
+  display: block;
+  cursor: grab;
+  border: 1px solid $bg-card-border;
+  border-radius: 6px;
+
+  &:active { cursor: grabbing; }
+}
+
+.hint {
+  font-size: 10px;
+  color: $text-hint;
+  margin: 4px 0 10px;
+  letter-spacing: .07em;
+}
+
+// ── Results grid ───────────────────────────────────────────────────────────
+.results {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 7px;
+  padding: 6px 0 8px;
+}
+
+.rc {
+  background: $bg-card;
+  border-radius: 6px;
+  padding: 8px 10px;
+}
+
+.rl {
+  font-size: 10px;
+  color: $text-sub;
+  margin-bottom: 2px;
+}
+
+.rv {
+  font-size: 15px;
+  font-weight: 500;
+  color: $text;
+
+  &.good { color: $color-good; }
+  &.warn { color: $color-warn; }
+  &.bad  { color: $color-bad; }
+}
+
+.ru {
+  font-size: 10px;
+  color: $text-muted;
+}
+
+// ── Alerts ─────────────────────────────────────────────────────────────────
+.alerts {
+  padding: 2px 0 8px;
+  min-height: 4px;
+}
+
+.al {
+  font-size: 11px;
+  padding: 5px 9px;
+  border-radius: 5px;
+  margin: 3px 0;
+  display: none;
+
+  &.show { display: block; }
+  &.w { background: $bg-alert-warn;  color: $color-warn; }
+  &.e { background: $bg-alert-error; color: $color-bad; }
+  &.g { background: $bg-alert-good;  color: $color-good; }
+}
+
+// ── Control panels ─────────────────────────────────────────────────────────
+.panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.panel {
+  background: $bg-card;
+  border-radius: 6px;
+  padding: 10px 12px;
+}
+
+.ph {
+  font-size: 10px;
+  font-weight: 500;
+  color: $text-sub;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  margin: 0 0 8px;
+}
+
+.pr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 6px;
+
+  label {
+    font-size: 12px;
+    color: $text-label;
+    width: 140px;
+    flex-shrink: 0;
+  }
+
+  input[type=range] {
+    flex: 1;
+    min-width: 0;
+    accent-color: $color-accent;
+  }
+
+  select {
+    flex: 1;
+    background: #111;
+    color: $text;
+    border: 1px solid $border-subtle;
+    border-radius: 4px;
+    padding: 3px 6px;
+    font-size: 12px;
+  }
+}
+
+.pv {
+  font-size: 12px;
+  font-weight: 500;
+  color: $text;
+  min-width: 48px;
+  text-align: right;
+}
+
+// ── Visibility toggle buttons ───────────────────────────────────────────────
+.tb {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.b {
+  padding: 3px 9px;
+  font-size: 11px;
+  border: 1px solid $border-btn;
+  border-radius: 20px;
+  background: $bg-card;
+  color: $text-muted;
+  cursor: pointer;
+  user-select: none;
+
+  &.on {
+    background: $bg-toggle-on;
+    color: $color-good;
+    border-color: $border-toggle-on;
+  }
+}
+
+// ── Mode toggle ────────────────────────────────────────────────────────────
+.mode-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.mode-btn {
+  padding: 5px 16px;
+  font-size: 12px;
+  border: 1px solid $border-subtle;
+  border-radius: 20px;
+  background: $bg-card;
+  color: $text-muted;
+  cursor: pointer;
+  user-select: none;
+  transition: all .15s;
+
+  &.active {
+    background: $bg-mode-active;
+    color: $color-mode-active;
+    border-color: $border-mode-active;
+  }
+}
+
+.mode-label {
+  font-size: 10px;
+  color: $text-hint;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+// ── Prism-only rows ────────────────────────────────────────────────────────
+.prism-only {
+  transition: opacity .2s;
+
+  &.hidden {
+    opacity: 0.25;
+    pointer-events: none;
+  }
+}
+
+// ── Responsive ─────────────────────────────────────────────────────────────
+@media (max-width: 520px) {
+  .panels  { grid-template-columns: 1fr; }
+  .results { grid-template-columns: repeat(3, 1fr); }
+}

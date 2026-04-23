@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HUD 3D Configurator v4</title>
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
 <h1>HUD 3D Configurator v4 — prism / no-prism</h1>
@@ -13,7 +13,7 @@
 <div class="mode-row">
   <span class="mode-label">Optical path:</span>
   <button class="mode-btn" id="btn-noprism" onclick="setMode('noprism')">No prism (vertical OLED)</button>
-  <button class="mode-btn active" id="btn-prism"   onclick="setMode('prism')">90° prism (flat OLED)</button>
+  <button class="mode-btn active" id="btn-prism" onclick="setMode('prism')">90° prism (flat OLED)</button>
 </div>
 
 <canvas id="c3d"></canvas>
@@ -94,6 +94,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="app.js"></script>
+<script src="assets/js/app.js"></script>
 </body>
 </html>
