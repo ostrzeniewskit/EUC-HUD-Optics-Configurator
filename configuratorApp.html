@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HUD 3D Configurator v4</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<h1>HUD 3D Configurator v4 — prism / no-prism</h1>
+
+<!-- Mode toggle -->
+<div class="mode-row">
+  <span class="mode-label">Optical path:</span>
+  <button class="mode-btn" id="btn-noprism" onclick="setMode('noprism')">No prism (vertical OLED)</button>
+  <button class="mode-btn active" id="btn-prism"   onclick="setMode('prism')">90° prism (flat OLED)</button>
+</div>
+
+<canvas id="c3d"></canvas>
+<p class="hint">drag to rotate · scroll to zoom · right-drag to pan</p>
+
+<div class="results" style="grid-template-columns:repeat(5,1fr);">
+  <div class="rc" title="Exact screen→lens gap for virtual image at chosen distance."><div class="rl">Optimal screen→lens</div><div class="rv" id="r-opt">—</div><div class="ru">mm</div></div>
+  <div class="rc" title="Signed offset from optimal. Negative = move OLED further. Positive = move OLED closer."><div class="rl">Current gap Δ</div><div class="rv" id="r-delta">—</div><div class="ru">mm off</div></div>
+  <div class="rc" title="How far the virtual image appears to float. 800–3000mm = relaxed focus."><div class="rl">Virtual img distance</div><div class="rv" id="r-imgd">—</div><div class="ru">mm</div></div>
+  <div class="rc" title="Magnification. Lower is better for HUD."><div class="rl">Magnification</div><div class="rv" id="r-mag">—</div><div class="ru">×</div></div>
+  <div class="rc" title="Apparent size of virtual image."><div class="rl">Virtual img size</div><div class="rv" id="r-imgs">—</div><div class="ru">mm</div></div>
+</div>
+<div class="results" style="grid-template-columns:repeat(5,1fr);padding-top:0;">
+  <div class="rc"><div class="rl">FoV W × H</div><div class="rv" id="r-fov">—</div><div class="ru">°</div></div>
+  <div class="rc"><div class="rl">Lens → splitter</div><div class="rv" id="r-ls">—</div><div class="ru">mm</div></div>
+  <div class="rc"><div class="rl">Total axis length</div><div class="rv" id="r-tot">—</div><div class="ru">mm</div></div>
+  <div class="rc" id="rc-prism" title="Extra path length added by prism. Only in prism mode."><div class="rl">Prism path</div><div class="rv" id="r-prism">—</div><div class="ru">mm</div></div>
+  <div class="rc"><div class="rl">Focus comfort</div><div class="rv" id="r-focus">—</div><div class="ru"></div></div>
+</div>
+
+<div id="legend" style="background:#1a1a1e;border-radius:6px;padding:9px 12px;margin-bottom:8px;font-size:11px;line-height:1.7;color:#666;">
+  <span style="color:#555;font-size:10px;text-transform:uppercase;letter-spacing:.07em;font-weight:500;">Focus comfort guide</span><br>
+  <span style="color:#ff4444">■</span> <b style="color:#999">very close</b> — image &lt;300mm, eye strain. Avoid.<br>
+  <span style="color:#ffaa00">■</span> <b style="color:#999">arm length</b> — 300–800mm. Some effort. Short use only.<br>
+  <span style="color:#00cc66">■</span> <b style="color:#999">relaxed ✓</b> — 800mm–3m. Eye nearly fully relaxed. <b style="color:#00cc66">Best.</b><br>
+  <span style="color:#00cc66">■</span> <b style="color:#999">far/∞ ✓</b> — 3m+. Fully relaxed. <b style="color:#00cc66">Excellent.</b><br>
+  <span style="color:#ff4444">■</span> <b style="color:#999">real img!</b> — OLED past focal length. Inverted — unusable.
+</div>
+
+<div class="alerts">
+  <div class="al w" id="al-vign">Display wider than lens — corner vignetting.</div>
+  <div class="al w" id="al-gap">Screen→lens gap differs from optimal by &gt;3mm.</div>
+  <div class="al g" id="al-good">All parameters look good.</div>
+</div>
+
+<div class="panels">
+  <div class="panel">
+    <div class="ph">Lens</div>
+    <div class="pr"><label>Diameter D</label><input type="range" id="lD" min="6" max="40" value="30" step="1"><span class="pv"><span id="lD-v">30</span> mm</span></div>
+    <div class="pr"><label>Focal length f</label><input type="range" id="lF" min="6" max="65" value="12" step="1"><span class="pv"><span id="lF-v">12</span> mm</span></div>
+    <div class="pr"><label>Thickness H</label><input type="range" id="lH" min="2" max="14" value="7" step="0.1"><span class="pv"><span id="lH-v">7.0</span> mm</span></div>
+  </div>
+  <div class="panel">
+    <div class="ph">Screen (OLED)</div>
+    <div class="pr"><label>Screen active width</label><input type="range" id="dW" min="5" max="40" value="10.5" step="0.1"><span class="pv"><span id="dW-v">10.5</span> mm</span></div>
+    <div class="pr"><label>Screen active height</label><input type="range" id="dH" min="3" max="40" value="8.5" step="0.1"><span class="pv"><span id="dH-v">8.5</span> mm</span></div>
+  </div>
+  <div class="panel">
+    <div class="ph">PCB</div>
+    <div class="pr"><label>PCB length (X)</label><input type="range" id="dP" min="10" max="100" value="40" step="1"><span class="pv"><span id="dP-v">40</span> mm</span></div>
+    <div class="pr"><label>PCB width (Z)</label><input type="range" id="pcbW" min="10" max="60" value="42" step="1"><span class="pv"><span id="pcbW-v">42</span> mm</span></div>
+    <div class="pr"><label>PCB thickness</label><input type="range" id="dPS" min="3" max="12" value="6" step="0.5"><span class="pv"><span id="dPS-v">6.0</span> mm</span></div>
+    <div class="pr prism-only" id="row-prismS">
+      <label>Prism size</label>
+      <select id="prismS">
+        <option value="10">10 mm</option>
+        <option value="15" selected>15 mm</option>
+        <option value="20">20 mm</option>
+        <option value="25">25 mm</option>
+      </select>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="ph">Spacing</div>
+    <div class="pr"><label>Screen → lens</label><input type="range" id="sUL" min="3" max="80" value="10" step="0.5"><span class="pv"><span id="sUL-v">10.0</span> mm</span></div>
+    <div class="pr"><label>Lens → splitter</label><input type="range" id="sLS" min="3" max="60" value="12" step="0.5"><span class="pv"><span id="sLS-v">12.0</span> mm</span></div>
+    <div class="pr"><label>Virtual distance</label><input type="range" id="sVD" min="300" max="5000" value="2000" step="100"><span class="pv"><span id="sVD-v">2000</span> mm</span></div>
+  </div>
+  <div class="panel">
+    <div class="ph">Beam splitter</div>
+    <div class="pr"><label>Size (square)</label><input type="range" id="splS" min="10" max="50" value="30" step="1"><span class="pv"><span id="splS-v">30</span> mm</span></div>
+    <div class="pr"><label>Thickness</label><input type="range" id="splT" min="1" max="8" value="1.1" step="0.1"><span class="pv"><span id="splT-v">1.1</span> mm</span></div>
+  </div>
+  <div class="panel">
+    <div class="ph">Visibility</div>
+    <div class="tb" id="tb"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

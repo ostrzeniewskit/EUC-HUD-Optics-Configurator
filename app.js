@@ -1,139 +1,3 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>HUD 3D Configurator v4</title>
-<style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-body{background:#0f0f13;color:#e0e0e0;font-family:system-ui,sans-serif;padding:16px;}
-h1{font-size:13px;letter-spacing:.15em;color:#666;text-transform:uppercase;margin-bottom:16px;}
-#c3d{width:100%;height:420px;display:block;cursor:grab;border:1px solid #1e1e22;border-radius:6px;}
-#c3d:active{cursor:grabbing;}
-.hint{font-size:10px;color:#444;margin:4px 0 10px;letter-spacing:.07em;}
-.results{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;padding:6px 0 8px;}
-.rc{background:#1a1a1e;border-radius:6px;padding:8px 10px;}
-.rl{font-size:10px;color:#555;margin-bottom:2px;}
-.rv{font-size:15px;font-weight:500;color:#e0e0e0;}
-.ru{font-size:10px;color:#666;}
-.rv.good{color:#00cc66;}.rv.warn{color:#ffaa00;}.rv.bad{color:#ff4444;}
-.alerts{padding:2px 0 8px;min-height:4px;}
-.al{font-size:11px;padding:5px 9px;border-radius:5px;margin:3px 0;display:none;}
-.al.show{display:block;}
-.al.w{background:#2a1f00;color:#ffaa00;}
-.al.e{background:#2a0000;color:#ff4444;}
-.al.g{background:#002a12;color:#00cc66;}
-.panels{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:4px 0;}
-.panel{background:#1a1a1e;border-radius:6px;padding:10px 12px;}
-.ph{font-size:10px;font-weight:500;color:#555;text-transform:uppercase;letter-spacing:.07em;margin:0 0 8px;}
-.pr{display:flex;align-items:center;gap:8px;margin:0 0 6px;}
-.pr label{font-size:12px;color:#888;width:140px;flex-shrink:0;}
-.pr input[type=range]{flex:1;min-width:0;accent-color:#CC4A18;}
-.pr select{flex:1;background:#111;color:#e0e0e0;border:1px solid #333;border-radius:4px;padding:3px 6px;font-size:12px;}
-.pv{font-size:12px;font-weight:500;color:#e0e0e0;min-width:48px;text-align:right;}
-.tb{display:flex;flex-wrap:wrap;gap:5px;}
-.b{padding:3px 9px;font-size:11px;border:1px solid #2a2a2e;border-radius:20px;background:#1a1a1e;color:#666;cursor:pointer;user-select:none;}
-.b.on{background:#0f1f10;color:#00cc66;border-color:#00aa44;}
-/* mode toggle */
-.mode-row{display:flex;align-items:center;gap:10px;margin-bottom:12px;}
-.mode-btn{padding:5px 16px;font-size:12px;border:1px solid #333;border-radius:20px;background:#1a1a1e;color:#666;cursor:pointer;user-select:none;transition:all .15s;}
-.mode-btn.active{background:#1a1a30;color:#66aaff;border-color:#3355aa;}
-.mode-label{font-size:10px;color:#444;letter-spacing:.07em;text-transform:uppercase;}
-/* prism-only rows */
-.prism-only{transition:opacity .2s;}
-.prism-only.hidden{opacity:0.25;pointer-events:none;}
-@media(max-width:520px){.panels{grid-template-columns:1fr;}.results{grid-template-columns:repeat(3,1fr);}}
-</style>
-</head>
-<body>
-<h1>HUD 3D Configurator v4 — prism / no-prism</h1>
-
-<!-- Mode toggle -->
-<div class="mode-row">
-  <span class="mode-label">Optical path:</span>
-  <button class="mode-btn" id="btn-noprism" onclick="setMode('noprism')">No prism (vertical OLED)</button>
-  <button class="mode-btn active" id="btn-prism"   onclick="setMode('prism')">90° prism (flat OLED)</button>
-</div>
-
-<canvas id="c3d"></canvas>
-<p class="hint">drag to rotate · scroll to zoom · right-drag to pan</p>
-
-<div class="results" style="grid-template-columns:repeat(5,1fr);">
-  <div class="rc" title="Exact screen→lens gap for virtual image at chosen distance."><div class="rl">Optimal screen→lens</div><div class="rv" id="r-opt">—</div><div class="ru">mm</div></div>
-  <div class="rc" title="Signed offset from optimal. Negative = move OLED further. Positive = move OLED closer."><div class="rl">Current gap Δ</div><div class="rv" id="r-delta">—</div><div class="ru">mm off</div></div>
-  <div class="rc" title="How far the virtual image appears to float. 800–3000mm = relaxed focus."><div class="rl">Virtual img distance</div><div class="rv" id="r-imgd">—</div><div class="ru">mm</div></div>
-  <div class="rc" title="Magnification. Lower is better for HUD."><div class="rl">Magnification</div><div class="rv" id="r-mag">—</div><div class="ru">×</div></div>
-  <div class="rc" title="Apparent size of virtual image."><div class="rl">Virtual img size</div><div class="rv" id="r-imgs">—</div><div class="ru">mm</div></div>
-</div>
-<div class="results" style="grid-template-columns:repeat(5,1fr);padding-top:0;">
-  <div class="rc"><div class="rl">FoV W × H</div><div class="rv" id="r-fov">—</div><div class="ru">°</div></div>
-  <div class="rc"><div class="rl">Lens → splitter</div><div class="rv" id="r-ls">—</div><div class="ru">mm</div></div>
-  <div class="rc"><div class="rl">Total axis length</div><div class="rv" id="r-tot">—</div><div class="ru">mm</div></div>
-  <div class="rc" id="rc-prism" title="Extra path length added by prism. Only in prism mode."><div class="rl">Prism path</div><div class="rv" id="r-prism">—</div><div class="ru">mm</div></div>
-  <div class="rc"><div class="rl">Focus comfort</div><div class="rv" id="r-focus">—</div><div class="ru"></div></div>
-</div>
-
-<div id="legend" style="background:#1a1a1e;border-radius:6px;padding:9px 12px;margin-bottom:8px;font-size:11px;line-height:1.7;color:#666;">
-  <span style="color:#555;font-size:10px;text-transform:uppercase;letter-spacing:.07em;font-weight:500;">Focus comfort guide</span><br>
-  <span style="color:#ff4444">■</span> <b style="color:#999">very close</b> — image &lt;300mm, eye strain. Avoid.<br>
-  <span style="color:#ffaa00">■</span> <b style="color:#999">arm length</b> — 300–800mm. Some effort. Short use only.<br>
-  <span style="color:#00cc66">■</span> <b style="color:#999">relaxed ✓</b> — 800mm–3m. Eye nearly fully relaxed. <b style="color:#00cc66">Best.</b><br>
-  <span style="color:#00cc66">■</span> <b style="color:#999">far/∞ ✓</b> — 3m+. Fully relaxed. <b style="color:#00cc66">Excellent.</b><br>
-  <span style="color:#ff4444">■</span> <b style="color:#999">real img!</b> — OLED past focal length. Inverted — unusable.
-</div>
-
-<div class="alerts">
-  <div class="al w" id="al-vign">Display wider than lens — corner vignetting.</div>
-  <div class="al w" id="al-gap">Screen→lens gap differs from optimal by &gt;3mm.</div>
-  <div class="al g" id="al-good">All parameters look good.</div>
-</div>
-
-<div class="panels">
-  <div class="panel">
-    <div class="ph">Lens</div>
-    <div class="pr"><label>Diameter D</label><input type="range" id="lD" min="6" max="40" value="30" step="1"><span class="pv"><span id="lD-v">30</span> mm</span></div>
-    <div class="pr"><label>Focal length f</label><input type="range" id="lF" min="6" max="65" value="12" step="1"><span class="pv"><span id="lF-v">12</span> mm</span></div>
-    <div class="pr"><label>Thickness H</label><input type="range" id="lH" min="2" max="14" value="7" step="0.1"><span class="pv"><span id="lH-v">7.0</span> mm</span></div>
-  </div>
-  <div class="panel">
-    <div class="ph">Screen (OLED)</div>
-    <div class="pr"><label>Screen active width</label><input type="range" id="dW" min="5" max="40" value="10.5" step="0.1"><span class="pv"><span id="dW-v">10.5</span> mm</span></div>
-    <div class="pr"><label>Screen active height</label><input type="range" id="dH" min="3" max="40" value="8.5" step="0.1"><span class="pv"><span id="dH-v">8.5</span> mm</span></div>
-  </div>
-  <div class="panel">
-    <div class="ph">PCB</div>
-    <div class="pr"><label>PCB length (X)</label><input type="range" id="dP" min="10" max="100" value="40" step="1"><span class="pv"><span id="dP-v">40</span> mm</span></div>
-    <div class="pr"><label>PCB width (Z)</label><input type="range" id="pcbW" min="10" max="60" value="42" step="1"><span class="pv"><span id="pcbW-v">42</span> mm</span></div>
-    <div class="pr"><label>PCB thickness</label><input type="range" id="dPS" min="3" max="12" value="6" step="0.5"><span class="pv"><span id="dPS-v">6.0</span> mm</span></div>
-    <div class="pr prism-only" id="row-prismS">
-      <label>Prism size</label>
-      <select id="prismS">
-        <option value="10">10 mm</option>
-        <option value="15" selected>15 mm</option>
-        <option value="20">20 mm</option>
-        <option value="25">25 mm</option>
-      </select>
-    </div>
-  </div>
-  <div class="panel">
-    <div class="ph">Spacing</div>
-    <div class="pr"><label>Screen → lens</label><input type="range" id="sUL" min="3" max="80" value="10" step="0.5"><span class="pv"><span id="sUL-v">10.0</span> mm</span></div>
-    <div class="pr"><label>Lens → splitter</label><input type="range" id="sLS" min="3" max="60" value="12" step="0.5"><span class="pv"><span id="sLS-v">12.0</span> mm</span></div>
-    <div class="pr"><label>Virtual distance</label><input type="range" id="sVD" min="300" max="5000" value="2000" step="100"><span class="pv"><span id="sVD-v">2000</span> mm</span></div>
-  </div>
-  <div class="panel">
-    <div class="ph">Beam splitter</div>
-    <div class="pr"><label>Size (square)</label><input type="range" id="splS" min="10" max="50" value="30" step="1"><span class="pv"><span id="splS-v">30</span> mm</span></div>
-    <div class="pr"><label>Thickness</label><input type="range" id="splT" min="1" max="8" value="1.1" step="0.1"><span class="pv"><span id="splT-v">1.1</span> mm</span></div>
-  </div>
-  <div class="panel">
-    <div class="ph">Visibility</div>
-    <div class="tb" id="tb"></div>
-  </div>
-</div>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script>
 var canvas=document.getElementById('c3d');
 var renderer=new THREE.WebGLRenderer({canvas:canvas,antialias:true,alpha:true});
 renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
@@ -178,7 +42,6 @@ function setMode(m){
   document.getElementById('btn-noprism').classList.toggle('active', m==='noprism');
   document.getElementById('row-prismS').classList.toggle('hidden', m==='noprism');
   document.getElementById('rc-prism').style.opacity = m==='prism'?'1':'0.3';
-  // update title
   document.querySelector('h1').textContent = m==='prism'
     ? 'HUD 3D Configurator v4 — 90° prism (flat OLED)'
     : 'HUD 3D Configurator v4 — vertical OLED (no prism)';
@@ -211,8 +74,6 @@ function buildScenePrism(p){
   var ZC   = tOW/2;
   var lensEndX = lensX + lH/2 + WW;
 
-
-
   // PCB
   B('pcb', WW+1+dP/2, WW+dPS/2, ZC, dP, dPS, pcbW, MAT.pcb);
   B('pcb', WW+1+dP*0.3, WW+dPS+1, ZC, Math.min(dP*0.28,14), 2, Math.min(pcbW*0.4,12), MAT.chip);
@@ -228,7 +89,7 @@ function buildScenePrism(p){
     rowM.position.set(prismCX,pcbTopY+1.9,rz);addM('oled',rowM);
   }
 
-  // 90° prism (triangular, proper geometry)
+  // 90° prism (triangular)
   var pX0=prismCX-PS/2,pX1=prismCX+PS/2;
   var pY0=pcbTopY+2,pY1=pcbTopY+2+PS;
   var pZ0=ZC-PS/2,pZ1=ZC+PS/2;
@@ -291,8 +152,6 @@ function buildSceneNoPrism(p){
   var lensX     = oledFaceX+UL+lH/2;
   var splX      = lensX+lH/2+LS;
   var lensEndX  = lensX+lH/2+WW;
-
-
 
   // PCB
   B('pcb', WW+1+dP/2, WW+dPS/2, ZC, dP, dPS, pcbW, MAT.pcb);
@@ -390,7 +249,6 @@ function updateResults(p){
   document.getElementById('r-focus').textContent=focusLabel;
   document.getElementById('r-focus').className='rv '+focusClass;
 
-  // prism path card
   if(mode==='prism'){
     document.getElementById('r-prism').textContent=(PS*2).toFixed(0);
     document.getElementById('r-prism').className='rv';
@@ -408,7 +266,7 @@ function updateResults(p){
   }
 }
 
-// Visibility toggles — no lipo, eyeport, eyerelief, eye
+// Visibility toggles
 var tdefs=[
   {k:'oled',    l:'Display'},
   {k:'pcb',     l:'PCB'},
@@ -429,7 +287,6 @@ function applyVis(){
   Object.keys(vis).forEach(function(k){
     (groups[k]||[]).forEach(function(m){m.visible=vis[k];});
   });
-  // prism toggle button greyed in noprism mode
   var prismBtn=Array.from(document.querySelectorAll('.b')).find(function(b){return b.textContent==='Prism';});
   if(prismBtn) prismBtn.style.opacity=mode==='noprism'?'0.3':'1';
 }
@@ -503,9 +360,5 @@ function resize(){
 resize(); new ResizeObserver(resize).observe(canvas);
 function loop(){requestAnimationFrame(loop);renderer.render(scene,camera);}
 
-// init in prism mode
 setMode('prism');
 buildScene(params); updateResults(params); loop();
-</script>
-</body>
-</html>
